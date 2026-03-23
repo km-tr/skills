@@ -1,27 +1,26 @@
 ---
 name: codex-exec-review
-description: Use when reviewing current branch changes before merge, when parallel multi-perspective code review is needed, or when wanting automated severity-based review via codex exec agents
+description: Runs parallel multi-agent code review via codex exec. Use when reviewing branch changes before merge, when pre-merge review is needed across type safety, security, architecture, React, and code quality perspectives, or when severity-classified automated review is wanted
 ---
 
 # codex-exec-review
 
 ## Overview
 
-Parallel code review using 5 specialized `codex exec` agents (gpt-5.4, high effort). Each agent reviews the current branch's diff from a distinct perspective and produces a severity-classified report.
+Launches 5 specialized review agents in parallel via `codex exec` (gpt-5.4, high effort). Each agent reviews the current branch's diff from a distinct perspective and produces a severity-classified report with an APPROVE/WARNING/BLOCK verdict.
 
 ## When to Use
 
-- Before merging a feature branch
-- When you want multi-perspective review (type safety, security, architecture, React, general quality)
-- When manual review would miss cross-cutting concerns
+- Before merging a feature branch — catches cross-cutting concerns
+- When multiple review perspectives are needed in one pass
+- After significant refactoring or architectural changes
+- Symptoms: "ready to merge", "need review", "pre-merge check"
 
-**When NOT to use:**
-- No changes on branch (script exits automatically)
-- Single-file trivial changes where manual review suffices
+**Not for:** trivial single-line changes, branches with no diff
 
-## Quick Reference
+## Agents
 
-| Agent | Focus |
+| Agent | Specialty |
 |---|---|
 | typescript-pro | Type safety, generics, strict mode, module boundaries |
 | reviewer | Code quality, readability, naming, DRY, standards |
@@ -29,15 +28,22 @@ Parallel code review using 5 specialized `codex exec` agents (gpt-5.4, high effo
 | architect-reviewer | Architecture, coupling/cohesion, API design, scalability |
 | react-specialist | Hooks, re-renders, memoization, state management, a11y |
 
-## Implementation
+## Workflow
 
-Run the script below. It detects the base branch, generates the diff, and launches all 5 agents in parallel.
+1. Run the script below
+2. Read each agent's output — focus on CRITICAL and HIGH findings first
+3. If verdict is **Block**: fix critical issues, re-run
+4. If verdict is **Warning**: evaluate HIGH issues, fix or document exceptions
+5. If all verdicts are **Approve**: safe to merge
+
+## Script
 
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
 
-BASE_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo "main")
+BASE_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null \
+  | sed 's@^refs/remotes/origin/@@' || echo "main")
 DIFF=$(git diff "${BASE_BRANCH}"...HEAD)
 
 if [ -z "$DIFF" ]; then
@@ -54,15 +60,14 @@ echo "$DIFF" > "$DIFF_FILE"
 trap 'rm -f "$DIFF_FILE"' EXIT
 
 REVIEW_INSTRUCTIONS=$(cat <<'REVIEW_END'
-Review the git diff below. Organize findings by severity using this structure:
+Review the git diff below. For each issue found, use this format:
 
 [SEVERITY] Issue Title
 File: path/to/file.ts:lineNumber
 Issue: Description of the problem and its impact.
-Fix: Suggested resolution with code examples.
+Fix: Suggested resolution with code example.
 
-  code example showing BAD pattern
-  code example showing GOOD pattern
+Severity levels: CRITICAL, HIGH, MEDIUM, LOW
 
 Conclude with:
 
@@ -111,7 +116,7 @@ echo "=== All reviews complete ==="
 
 ## Review Output Format
 
-Organize findings by severity. For each issue, use this structure:
+Each agent outputs findings organized by severity:
 
 ```
 [SEVERITY] Issue Title
@@ -123,7 +128,7 @@ Fix: Suggested resolution with code examples.
   code example showing GOOD pattern
 ```
 
-Conclude every review with a summary table:
+Every review concludes with a summary table:
 
 ```
 ## Review Summary
@@ -148,7 +153,7 @@ Verdict: [APPROVE/WARNING/BLOCK] — explanation
 
 | Mistake | Fix |
 |---|---|
-| Running with no diff | Script handles this — exits with message |
-| Base branch not found | Falls back to `main`; set `origin/HEAD` if using different default |
-| Diff too large for prompt | Split review by directory or limit to staged changes |
-| Missing `codex` CLI | Install OpenAI Codex CLI first: `npm i -g @openai/codex` |
+| Base branch not found | Falls back to `main`. Set `origin/HEAD` if using different default |
+| Diff too large for prompt | Split review by directory or use `git diff --stat` to limit scope |
+| Missing `codex` CLI | Install first: `npm i -g @openai/codex` |
+| Ignoring WARNING verdicts | Evaluate each HIGH issue — document exceptions or fix before merge |
