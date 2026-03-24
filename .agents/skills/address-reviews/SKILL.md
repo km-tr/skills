@@ -11,12 +11,11 @@ Evaluates review findings from the preceding conversation (severity-classified r
 
 ## When to Use
 
-- When review findings need to be addressed after any code review
-- After automated review output (e.g., codex-exec-review) with WARNING or BLOCK verdict
+- When review findings in the conversation need to be addressed
 - When PR review comments need resolution
 - Symptoms: "fix review issues", "address review findings", "resolve review comments", "レビュー対応して", "指摘を直して"
 
-**Not for:** when no review findings exist, running the review itself (use codex-exec-review or similar)
+**Not for:** when no review findings exist, running the review itself (that is a separate skill)
 
 ## Scope
 
