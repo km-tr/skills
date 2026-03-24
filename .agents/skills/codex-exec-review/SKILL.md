@@ -18,13 +18,15 @@ Launches a single read-only `codex exec` session that creates 5 named review age
 
 **Not for:** trivial single-line changes, branches with no diff
 
+## Scope
+
+This skill **only reviews and reports** — it does not fix issues or merge branches. The output is the verdict itself.
+
 ## Workflow
 
 1. Run the script below
 2. Read each agent's output — focus on CRITICAL and HIGH findings first
-3. If verdict is **Block**: fix critical issues, re-run
-4. If verdict is **Warning**: evaluate HIGH issues, fix or document exceptions
-5. If all verdicts are **Approve**: safe to merge
+3. Report the consolidated verdict to the user
 
 ## Script
 
@@ -45,9 +47,9 @@ echo "Base: ${BASE_BRANCH} | Model: gpt-5.4 | Sandbox: read-only"
 echo ""
 
 codex exec -m gpt-5.4 -s read-only -c model_reasoning_effort=high "$(cat <<EOF
-You are a senior code review coordinator. Create the following 5 named agents and have them review the git diff below IN PARALLEL. Each agent produces its own independent report.
+You are a senior code review coordinator. Run the following 5 existing named agents to review the git diff below IN PARALLEL. Each agent produces its own independent report.
 
-## Agents
+## Agents to run
 
 1. **typescript-pro**
 2. **reviewer**
