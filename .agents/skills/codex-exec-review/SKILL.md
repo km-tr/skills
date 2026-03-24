@@ -25,8 +25,7 @@ This skill **only reviews and reports** — it does not fix issues or merge bran
 ## Workflow
 
 1. Run the script below
-2. Read each agent's output — focus on CRITICAL and HIGH findings first
-3. Report the consolidated verdict to the user
+2. Report the consolidated verdict to the user
 
 ## Script
 
