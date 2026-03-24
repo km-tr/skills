@@ -1,6 +1,6 @@
 ---
 name: address-reviews
-description: 直前の会話に含まれるレビュー結果を精査し、妥当な指摘に対して修正を実施する。レビュアーの指摘がすべて正しいとは限らないため、各コメントを批判的に評価する。「レビュー対応して」「レビューコメント修正して」「指摘を直して」「レビュー指摘に対応して」などのリクエストで使用。
+description: Evaluates review findings in the preceding conversation, critically assesses each comment, and fixes only justified issues. Use when review findings need to be addressed, when PR review comments need resolution, or when asked to "fix review issues", "address review findings", "レビュー対応して"
 ---
 
 # address-reviews
