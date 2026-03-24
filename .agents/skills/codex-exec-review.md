@@ -49,36 +49,36 @@ You are a senior code review coordinator. Create the following 5 named agents an
 
 ## Agents
 
-1. **typescript-pro** — Expert TypeScript reviewer. Focus: type safety, strict mode, generics, utility types, type narrowing, module boundaries
-2. **reviewer** — Senior code reviewer. Focus: code quality, readability, naming, maintainability, DRY, coding standards, large functions (>50 lines), large files (>800 lines), deep nesting (>4 levels), dead code
-3. **code-reviewer** — Security-focused code reviewer. Focus: hardcoded credentials, SQL injection, XSS, path traversal, CSRF, auth bypasses, insecure dependencies, exposed secrets in logs, unvalidated input, missing rate limiting, N+1 queries
-4. **architect-reviewer** — Software architecture reviewer. Focus: architectural patterns, separation of concerns, dependency management, scalability, coupling/cohesion, API design
-5. **react-specialist** — React and frontend performance expert. Focus: missing dependency arrays, state updates in render, missing keys, prop drilling, unnecessary re-renders, client/server boundary, missing loading/error states, stale closures, memoization
+1. **typescript-pro**
+2. **reviewer**
+3. **code-reviewer**
+4. **architect-reviewer**
+5. **react-specialist**
 
 ## Confidence Filter
 
 Only report issues with >80% confidence. Consolidate similar findings. Skip stylistic preferences unless they violate project conventions. Skip issues in unchanged code unless CRITICAL.
 
-## Output Format
+## Review Output Format
 
-Each agent produces a titled section. For each issue found:
-
-\`\`\`
-[SEVERITY] Issue Title
-File: path/to/file.ts:lineNumber
-Issue: Description of the problem and its impact.
-Fix: Suggested resolution with code example.
-
-  code example // BAD
-  code example // GOOD
-\`\`\`
-
-Severity levels: CRITICAL, HIGH, MEDIUM, LOW
-
-Each agent concludes with:
+Organize findings by severity. For each issue:
 
 \`\`\`
-## [agent-name] Review Summary
+[CRITICAL] Hardcoded API key in source
+File: src/api/client.ts:42
+Issue: API key "sk-abc..." exposed in source code. This will be committed to git history.
+Fix: Move to environment variable and add to .gitignore/.env.example
+
+  const apiKey = "sk-abc123";           // BAD
+  const apiKey = process.env.API_KEY;   // GOOD
+\`\`\`
+
+### Summary Format
+
+End every review with:
+
+\`\`\`
+## Review Summary
 
 | Severity | Count | Status |
 |----------|-------|--------|
@@ -87,7 +87,7 @@ Each agent concludes with:
 | MEDIUM   | 3     | info   |
 | LOW      | 1     | note   |
 
-Verdict: [APPROVE/WARNING/BLOCK] — explanation
+Verdict: WARNING — 2 HIGH issues should be resolved before merge.
 \`\`\`
 
 ## Approval Criteria
@@ -108,7 +108,7 @@ echo "=== Review complete ==="
 
 ## Review Output Format
 
-Each agent outputs findings organized by severity:
+Organize findings by severity. For each issue:
 
 ```
 [CRITICAL] Hardcoded API key in source
@@ -120,10 +120,12 @@ Fix: Move to environment variable and add to .gitignore/.env.example
   const apiKey = process.env.API_KEY;   // GOOD
 ```
 
-Each agent concludes with a summary table:
+### Summary Format
+
+End every review with:
 
 ```
-## [agent-name] Review Summary
+## Review Summary
 
 | Severity | Count | Status |
 |----------|-------|--------|
