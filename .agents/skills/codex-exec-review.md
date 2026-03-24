@@ -7,7 +7,7 @@ description: Runs parallel multi-agent code review via codex exec. Use when revi
 
 ## Overview
 
-Launches 5 specialized review agents in parallel via `codex exec` (gpt-5.4, high effort). Each agent reviews the current branch's diff from a distinct perspective and produces a severity-classified report with an APPROVE/WARNING/BLOCK verdict.
+Launches a single read-only `codex exec` session that performs 5 parallel reviews from distinct perspectives. Produces severity-classified findings with an APPROVE/WARNING/BLOCK verdict per perspective.
 
 ## When to Use
 
@@ -18,20 +18,10 @@ Launches 5 specialized review agents in parallel via `codex exec` (gpt-5.4, high
 
 **Not for:** trivial single-line changes, branches with no diff
 
-## Agents
-
-| Agent | Specialty |
-|---|---|
-| typescript-pro | Type safety, generics, strict mode, module boundaries |
-| reviewer | Code quality, readability, naming, DRY, standards |
-| code-reviewer | Bugs, edge cases, security (OWASP top 10), error handling |
-| architect-reviewer | Architecture, coupling/cohesion, API design, scalability |
-| react-specialist | Hooks, re-renders, memoization, state management, a11y |
-
 ## Workflow
 
 1. Run the script below
-2. Read each agent's output — focus on CRITICAL and HIGH findings first
+2. Read each perspective's output — focus on CRITICAL and HIGH findings first
 3. If verdict is **Block**: fix critical issues, re-run
 4. If verdict is **Warning**: evaluate HIGH issues, fix or document exceptions
 5. If all verdicts are **Approve**: safe to merge
@@ -40,7 +30,6 @@ Launches 5 specialized review agents in parallel via `codex exec` (gpt-5.4, high
 
 ```bash
 #!/usr/bin/env bash
-set -euo pipefail
 
 BASE_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null \
   | sed 's@^refs/remotes/origin/@@' || echo "main")
@@ -52,15 +41,25 @@ if [ -z "$DIFF" ]; then
 fi
 
 echo "=== Codex Exec Parallel Review ==="
-echo "Base: ${BASE_BRANCH} | Model: gpt-5.4 | Effort: high"
+echo "Base: ${BASE_BRANCH} | Model: gpt-5.4 | Sandbox: read-only"
 echo ""
 
-DIFF_FILE=$(mktemp)
-echo "$DIFF" > "$DIFF_FILE"
-trap 'rm -f "$DIFF_FILE"' EXIT
+codex exec -m gpt-5.4 -s read-only -c model_reasoning_effort=high "$(cat <<EOF
+You are a senior code review coordinator. Review the git diff below from 5 distinct perspectives IN PARALLEL. Produce a separate report for each perspective.
 
-REVIEW_INSTRUCTIONS=$(cat <<'REVIEW_END'
-Review the git diff below. For each issue found, use this format:
+## Review Perspectives
+
+1. **TypeScript Pro** — Type safety, strict mode, generics, utility types, type narrowing, module boundaries
+2. **Code Quality Reviewer** — Readability, naming, maintainability, DRY, coding standards
+3. **Security Reviewer** — Bugs, logic errors, edge cases, null/undefined, race conditions, input validation, OWASP top 10
+4. **Architecture Reviewer** — Architectural patterns, separation of concerns, dependency management, scalability, coupling/cohesion, API design
+5. **React Specialist** — Component patterns, hooks rules, re-render optimization, state management, memoization, accessibility
+
+## Output Format
+
+For each perspective, produce a titled section with findings organized by severity.
+
+For each issue:
 
 [SEVERITY] Issue Title
 File: path/to/file.ts:lineNumber
@@ -69,9 +68,9 @@ Fix: Suggested resolution with code example.
 
 Severity levels: CRITICAL, HIGH, MEDIUM, LOW
 
-Conclude with:
+Conclude each perspective with:
 
-## Review Summary
+## [Perspective Name] Review Summary
 
 | Severity | Count | Status |
 |----------|-------|--------|
@@ -86,37 +85,20 @@ Approval Criteria:
 - Approve: No critical or high-severity issues detected
 - Warning: High-severity issues present; mergeable with caution
 - Block: Critical issues found; changes must be fixed before merging
-REVIEW_END
-)
 
-declare -A AGENTS=(
-  [typescript-pro]="expert TypeScript reviewer. Focus: type safety, strict mode, generics, utility types, type narrowing, module boundaries"
-  [reviewer]="senior code reviewer. Focus: code quality, readability, naming, maintainability, DRY, coding standards"
-  [code-reviewer]="security-focused code reviewer. Focus: bugs, logic errors, edge cases, null/undefined, race conditions, input validation, OWASP top 10"
-  [architect-reviewer]="software architecture reviewer. Focus: architectural patterns, separation of concerns, dependency management, scalability, coupling/cohesion, API design"
-  [react-specialist]="React and frontend performance expert. Focus: component patterns, hooks rules, re-render optimization, state management, memoization, accessibility"
-)
+## Git diff to review:
 
-for agent in "${!AGENTS[@]}"; do
-  codex exec -m gpt-5.4 --effort high "$(cat <<EOF
-You are **${agent}**, a ${AGENTS[$agent]}.
-
-${REVIEW_INSTRUCTIONS}
-
-Git diff to review:
-$(cat "$DIFF_FILE")
+${DIFF}
 EOF
-)" &
-done
+)"
 
-wait
 echo ""
-echo "=== All reviews complete ==="
+echo "=== Review complete ==="
 ```
 
 ## Review Output Format
 
-Each agent outputs findings organized by severity:
+Each perspective outputs findings organized by severity:
 
 ```
 [SEVERITY] Issue Title
@@ -128,10 +110,10 @@ Fix: Suggested resolution with code examples.
   code example showing GOOD pattern
 ```
 
-Every review concludes with a summary table:
+Every perspective concludes with a summary table:
 
 ```
-## Review Summary
+## [Perspective Name] Review Summary
 
 | Severity | Count | Status |
 |----------|-------|--------|
