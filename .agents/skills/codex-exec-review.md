@@ -149,5 +149,4 @@ Verdict: WARNING — 2 HIGH issues should be resolved before merge.
 |---|---|
 | Base branch not found | Falls back to `main`. Set `origin/HEAD` if using different default |
 | Diff too large for prompt | Split review by directory or use `git diff --stat` to limit scope |
-| Missing `codex` CLI | Install first: `npm i -g @openai/codex` |
 | Ignoring WARNING verdicts | Evaluate each HIGH issue — document exceptions or fix before merge |
