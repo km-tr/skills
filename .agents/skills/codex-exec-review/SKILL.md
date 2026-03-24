@@ -7,7 +7,7 @@ description: Runs parallel multi-agent code review via codex exec. Use when revi
 
 ## Overview
 
-Launches a single read-only `codex exec` session that creates 5 named review agents (typescript-pro, reviewer, code-reviewer, architect-reviewer, react-specialist) to review the current branch's diff in parallel. Each agent produces a severity-classified report with an APPROVE/WARNING/BLOCK verdict.
+Launches a single read-only `codex exec` session that runs 5 existing named agents (typescript-pro, reviewer, code-reviewer, architect-reviewer, react-specialist) to review the current branch's diff in parallel. Each agent produces a severity-classified report with an APPROVE/WARNING/BLOCK verdict.
 
 ## When to Use
 
@@ -107,47 +107,9 @@ echo ""
 echo "=== Review complete ==="
 ```
 
-## Review Output Format
-
-Organize findings by severity. For each issue:
-
-```
-[CRITICAL] Hardcoded API key in source
-File: src/api/client.ts:42
-Issue: API key "sk-abc..." exposed in source code. This will be committed to git history.
-Fix: Move to environment variable and add to .gitignore/.env.example
-
-  const apiKey = "sk-abc123";           // BAD
-  const apiKey = process.env.API_KEY;   // GOOD
-```
-
-### Summary Format
-
-End every review with:
-
-```
-## Review Summary
-
-| Severity | Count | Status |
-|----------|-------|--------|
-| CRITICAL | 0     | pass   |
-| HIGH     | 2     | warn   |
-| MEDIUM   | 3     | info   |
-| LOW      | 1     | note   |
-
-Verdict: WARNING — 2 HIGH issues should be resolved before merge.
-```
-
-## Approval Criteria
-
-- **Approve**: No CRITICAL or HIGH issues
-- **Warning**: HIGH issues only (can merge with caution)
-- **Block**: CRITICAL issues found — must fix before merge
-
 ## Common Mistakes
 
 | Mistake | Fix |
 |---|---|
 | Base branch not found | Falls back to `main`. Set `origin/HEAD` if using different default |
 | Diff too large for prompt | Split review by directory or use `git diff --stat` to limit scope |
-| Ignoring WARNING verdicts | Evaluate each HIGH issue — document exceptions or fix before merge |
