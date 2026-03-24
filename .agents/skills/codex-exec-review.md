@@ -7,7 +7,7 @@ description: Runs parallel multi-agent code review via codex exec. Use when revi
 
 ## Overview
 
-Launches a single read-only `codex exec` session that performs 5 parallel reviews from distinct perspectives. Produces severity-classified findings with an APPROVE/WARNING/BLOCK verdict per perspective.
+Launches a single read-only `codex exec` session that creates 5 named review agents (typescript-pro, reviewer, code-reviewer, architect-reviewer, react-specialist) to review the current branch's diff in parallel. Each agent produces a severity-classified report with an APPROVE/WARNING/BLOCK verdict.
 
 ## When to Use
 
@@ -21,7 +21,7 @@ Launches a single read-only `codex exec` session that performs 5 parallel review
 ## Workflow
 
 1. Run the script below
-2. Read each perspective's output — focus on CRITICAL and HIGH findings first
+2. Read each agent's output — focus on CRITICAL and HIGH findings first
 3. If verdict is **Block**: fix critical issues, re-run
 4. If verdict is **Warning**: evaluate HIGH issues, fix or document exceptions
 5. If all verdicts are **Approve**: safe to merge
@@ -45,46 +45,56 @@ echo "Base: ${BASE_BRANCH} | Model: gpt-5.4 | Sandbox: read-only"
 echo ""
 
 codex exec -m gpt-5.4 -s read-only -c model_reasoning_effort=high "$(cat <<EOF
-You are a senior code review coordinator. Review the git diff below from 5 distinct perspectives IN PARALLEL. Produce a separate report for each perspective.
+You are a senior code review coordinator. Create the following 5 named agents and have them review the git diff below IN PARALLEL. Each agent produces its own independent report.
 
-## Review Perspectives
+## Agents
 
-1. **TypeScript Pro** — Type safety, strict mode, generics, utility types, type narrowing, module boundaries
-2. **Code Quality Reviewer** — Readability, naming, maintainability, DRY, coding standards
-3. **Security Reviewer** — Bugs, logic errors, edge cases, null/undefined, race conditions, input validation, OWASP top 10
-4. **Architecture Reviewer** — Architectural patterns, separation of concerns, dependency management, scalability, coupling/cohesion, API design
-5. **React Specialist** — Component patterns, hooks rules, re-render optimization, state management, memoization, accessibility
+1. **typescript-pro** — Expert TypeScript reviewer. Focus: type safety, strict mode, generics, utility types, type narrowing, module boundaries
+2. **reviewer** — Senior code reviewer. Focus: code quality, readability, naming, maintainability, DRY, coding standards, large functions (>50 lines), large files (>800 lines), deep nesting (>4 levels), dead code
+3. **code-reviewer** — Security-focused code reviewer. Focus: hardcoded credentials, SQL injection, XSS, path traversal, CSRF, auth bypasses, insecure dependencies, exposed secrets in logs, unvalidated input, missing rate limiting, N+1 queries
+4. **architect-reviewer** — Software architecture reviewer. Focus: architectural patterns, separation of concerns, dependency management, scalability, coupling/cohesion, API design
+5. **react-specialist** — React and frontend performance expert. Focus: missing dependency arrays, state updates in render, missing keys, prop drilling, unnecessary re-renders, client/server boundary, missing loading/error states, stale closures, memoization
+
+## Confidence Filter
+
+Only report issues with >80% confidence. Consolidate similar findings. Skip stylistic preferences unless they violate project conventions. Skip issues in unchanged code unless CRITICAL.
 
 ## Output Format
 
-For each perspective, produce a titled section with findings organized by severity.
+Each agent produces a titled section. For each issue found:
 
-For each issue:
-
+\`\`\`
 [SEVERITY] Issue Title
 File: path/to/file.ts:lineNumber
 Issue: Description of the problem and its impact.
 Fix: Suggested resolution with code example.
 
+  code example // BAD
+  code example // GOOD
+\`\`\`
+
 Severity levels: CRITICAL, HIGH, MEDIUM, LOW
 
-Conclude each perspective with:
+Each agent concludes with:
 
-## [Perspective Name] Review Summary
+\`\`\`
+## [agent-name] Review Summary
 
 | Severity | Count | Status |
 |----------|-------|--------|
-| CRITICAL | X     | status |
-| HIGH     | X     | status |
-| MEDIUM   | X     | status |
-| LOW      | X     | status |
+| CRITICAL | 0     | pass   |
+| HIGH     | 2     | warn   |
+| MEDIUM   | 3     | info   |
+| LOW      | 1     | note   |
 
 Verdict: [APPROVE/WARNING/BLOCK] — explanation
+\`\`\`
 
-Approval Criteria:
-- Approve: No critical or high-severity issues detected
-- Warning: High-severity issues present; mergeable with caution
-- Block: Critical issues found; changes must be fixed before merging
+## Approval Criteria
+
+- **Approve**: No CRITICAL or HIGH issues
+- **Warning**: HIGH issues only (can merge with caution)
+- **Block**: CRITICAL issues found — must fix before merge
 
 ## Git diff to review:
 
@@ -98,38 +108,38 @@ echo "=== Review complete ==="
 
 ## Review Output Format
 
-Each perspective outputs findings organized by severity:
+Each agent outputs findings organized by severity:
 
 ```
-[SEVERITY] Issue Title
-File: path/to/file.ts:lineNumber
-Issue: Description of the problem and its impact.
-Fix: Suggested resolution with code examples.
+[CRITICAL] Hardcoded API key in source
+File: src/api/client.ts:42
+Issue: API key "sk-abc..." exposed in source code. This will be committed to git history.
+Fix: Move to environment variable and add to .gitignore/.env.example
 
-  code example showing BAD pattern
-  code example showing GOOD pattern
+  const apiKey = "sk-abc123";           // BAD
+  const apiKey = process.env.API_KEY;   // GOOD
 ```
 
-Every perspective concludes with a summary table:
+Each agent concludes with a summary table:
 
 ```
-## [Perspective Name] Review Summary
+## [agent-name] Review Summary
 
 | Severity | Count | Status |
 |----------|-------|--------|
-| CRITICAL | X     | status |
-| HIGH     | X     | status |
-| MEDIUM   | X     | status |
-| LOW      | X     | status |
+| CRITICAL | 0     | pass   |
+| HIGH     | 2     | warn   |
+| MEDIUM   | 3     | info   |
+| LOW      | 1     | note   |
 
-Verdict: [APPROVE/WARNING/BLOCK] — explanation
+Verdict: WARNING — 2 HIGH issues should be resolved before merge.
 ```
 
 ## Approval Criteria
 
-- **Approve**: No critical or high-severity issues detected
-- **Warning**: High-severity issues present; mergeable with caution
-- **Block**: Critical issues found; changes must be fixed before merging
+- **Approve**: No CRITICAL or HIGH issues
+- **Warning**: HIGH issues only (can merge with caution)
+- **Block**: CRITICAL issues found — must fix before merge
 
 ## Common Mistakes
 
