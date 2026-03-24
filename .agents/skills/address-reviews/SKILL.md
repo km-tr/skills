@@ -1,77 +1,74 @@
 ---
 name: address-reviews
-description: Evaluates and addresses code review issues from codex-exec-review output. Use when review findings need to be addressed, when codex-exec-review returned WARNING or BLOCK verdict, when automated review issues need triage and resolution. Trigger words — "fix review issues", "address review findings", "resolve review comments", "レビュー対応して"
+description: 直前の会話に含まれるレビュー結果を精査し、妥当な指摘に対して修正を実施する。レビュアーの指摘がすべて正しいとは限らないため、各コメントを批判的に評価する。「レビュー対応して」「レビューコメント修正して」「指摘を直して」「レビュー指摘に対応して」などのリクエストで使用。
 ---
 
 # address-reviews
 
 ## Overview
 
-Takes severity-classified review output from codex-exec-review (or any review using the same `[SEVERITY] Title` format), critically evaluates each finding against the actual code, fixes justified issues, and produces an updated summary with the new verdict.
+直前の会話に含まれるレビュー結果（severity-classified review、PRレビューコメント、コードレビュー指摘など形式を問わない）を精査し、各指摘を批判的に評価した上で、妥当なもののみ修正を実施する。
 
 ## When to Use
 
-- After running codex-exec-review and receiving WARNING or BLOCK verdict
-- When review output contains CRITICAL or HIGH issues that need resolution
-- When you want automated triage + fix of review findings
-- Symptoms: "fix review issues", "address review findings", "resolve review comments", "レビュー対応して"
+- レビュー結果を受けて修正対応が必要なとき
+- codex-exec-reviewなどの自動レビュー出力に対応するとき
+- PRのレビューコメントに対応するとき
+- Symptoms: "レビュー対応して", "レビューコメント修正して", "指摘を直して", "fix review issues", "address review findings"
 
-**Not for:** reviews with APPROVE verdict (nothing to fix), non-severity-classified review formats
+**Not for:** レビュー指摘がない場合、レビュー自体の実行（それはcodex-exec-reviewなど別スキルの役割）
 
 ## Scope
 
-This skill **evaluates, addresses, and re-summarizes** review findings. It does not re-run the review from scratch or merge branches.
+レビュー指摘の**評価・修正・再サマリー**を行う。レビュー自体の実行やブランチのマージは行わない。
 
 ## Workflow
 
 ### Step 1 — Collect Review Findings
 
-Locate the codex-exec-review output in the conversation. Extract every issue block matching this pattern:
+直前の会話からレビュー指摘を特定・一覧化する。以下のいずれの形式にも対応する:
 
-```
-[SEVERITY] Issue Title
-File: path/file.ts:line
-Issue: Description of problem
-Fix: Suggested solution
-```
+- **severity-classified形式**（codex-exec-review等）: `[SEVERITY] Title` + `File:` + `Issue:` + `Fix:`
+- **PRレビューコメント**: ファイル・行番号付きのインラインコメント
+- **自由形式のレビュー**: 箇条書きやテキストベースの指摘
 
-Also note the original verdict (APPROVE / WARNING / BLOCK), severity counts, and which reviewer agent reported each issue (e.g., typescript-pro, reviewer, code-reviewer, architect-reviewer, react-specialist).
+各指摘について、元のレビュアー名（エージェント名、GitHub ユーザー名など）と対象ファイル・行を記録する。
 
-If no review output is found in conversation context, ask the user to provide it or run codex-exec-review first.
+レビュー結果が会話中に見つからない場合は、ユーザーに提供を依頼する。
 
 ### Step 2 — Evaluate Each Finding Independently
 
-For **each** extracted issue:
+各指摘について以下を実施する:
 
-1. **Read the actual code** at the referenced file and line
-2. Assess whether the issue is real:
-   - Does the described problem actually exist in the code?
-   - Is the severity classification accurate?
-   - Is the suggested fix appropriate, or is there a better approach?
-   - Could this be a false positive (e.g., the reviewer lacked project context)?
-3. Classify your assessment:
-   - **FIX** — issue is valid and should be addressed
-   - **SKIP** — issue is invalid, a false positive, or not worth fixing (must provide reason)
-   - **DOWNGRADE** — issue is real but severity is overstated (state corrected severity)
+1. **対象コードを実際に読む** — 指摘されたファイル・行を確認する
+2. 妥当性を評価する:
+   - 指摘された問題は実際にコード上に存在するか？
+   - 提案された修正は適切か、より良いアプローチはないか？
+   - false positive（レビュアーがプロジェクトのコンテキストを欠いている等）ではないか？
+3. severityが付与されていない指摘には、自分で CRITICAL / HIGH / MEDIUM / LOW を割り当てる
+4. 各指摘を分類する:
+   - **FIX** — 指摘は妥当であり、修正すべき
+   - **SKIP** — 指摘は不正確、false positive、または対応不要（理由を明記すること）
+   - **DOWNGRADE** — 問題は実在するがseverityが過大（正しいseverityを明記）
 
-**Critical principle: Do not blindly accept all review feedback.** Reviewers can be wrong. Evaluate each issue on its own merits against the actual code.
+**重要原則: レビュアーの指摘を鵜呑みにしない。** 各指摘を実コードに照らして独立に判断すること。
 
 ### Step 3 — Apply Fixes
 
-Process in priority order: CRITICAL → HIGH → MEDIUM → LOW.
+CRITICAL → HIGH → MEDIUM → LOW の優先順で処理する。
 
-For each issue classified as FIX:
+FIXと分類した各指摘について:
 
-1. Open the referenced file
-2. Apply the fix (use the reviewer's suggestion as a starting point, but improve it if you see a better approach)
-3. Verify the fix does not introduce new issues or break surrounding code
-4. Note exactly what was changed
+1. 対象ファイルを開く
+2. 修正を適用する（レビュアーの提案を出発点にしつつ、より良い方法があれば改善する）
+3. 修正が周辺コードを壊さないか確認する
+4. 何を変更したか記録する
 
-For DOWNGRADE issues: only fix if the corrected severity is still CRITICAL or HIGH.
+DOWNGRADE した指摘: 修正後のseverityがCRITICALまたはHIGHの場合のみ修正する。
 
 ### Step 4 — Produce Summary
 
-Output the results in this exact format:
+以下の形式でサマリーを出力する:
 
 ```
 ## Address-Reviews Summary
@@ -112,22 +109,23 @@ Verdict: APPROVE/WARNING/BLOCK — explanation based on remaining issues
 
 ## Approval Criteria
 
-Re-evaluate the verdict based on **remaining** (unfixed) issues only:
+**残存する**（未修正の）指摘のみに基づいてverdictを再評価する:
 
-- **Approve**: No remaining CRITICAL or HIGH issues
-- **Warning**: Remaining HIGH issues only (can merge with caution)
-- **Block**: Remaining CRITICAL issues — must fix before merge
+- **Approve**: CRITICALおよびHIGHの残存なし
+- **Warning**: HIGHのみ残存（注意付きでマージ可）
+- **Block**: CRITICALが残存 — マージ前に修正必須
 
-If all CRITICAL and HIGH issues were fixed or validly downgraded/skipped, the verdict should change to APPROVE.
+全てのCRITICAL/HIGH指摘が修正済み、または妥当にSKIP/DOWNGRADEされた場合、verdictはAPPROVEに変更する。
 
 ## Common Mistakes
 
 | Mistake | Fix |
 |---|---|
-| Blindly fixing every reported issue | Evaluate each issue independently; skip false positives with justification |
-| Not reading actual code before fixing | Always read the referenced file and line before deciding |
-| Changing verdict without re-counting | Re-count remaining issues by severity after all fixes |
-| Fixing MEDIUM/LOW when CRITICAL exists | Prioritize CRITICAL → HIGH → MEDIUM → LOW |
-| Applying reviewer's fix verbatim when a better fix exists | Use the suggestion as a starting point; improve when appropriate |
-| No review output in context | Ask user to provide it or run codex-exec-review first |
-| Fix introduces new issue | Verify surrounding code still works after each change |
+| 全指摘を無条件に修正する | 各指摘を独立に評価し、false positiveはスキップ（理由付き） |
+| 実コードを読まずに修正を判断する | 必ず対象ファイル・行を確認してから判断する |
+| Verdictを再カウントせずに変更する | 全修正後にseverity別の残数を再集計する |
+| CRITICALがあるのにMEDIUM/LOWを先に対応する | CRITICAL → HIGH → MEDIUM → LOW の優先順で処理 |
+| レビュアーの修正案をそのまま適用する | 提案を出発点にしつつ、より良い方法があれば改善する |
+| 会話中にレビュー結果がない | ユーザーにレビュー結果の提供を依頼する |
+| 修正が新たな問題を生む | 各変更後に周辺コードへの影響を確認する |
+| severity未付与の指摘をそのまま放置する | 自分でseverityを割り当ててからトリアージする |
